@@ -142,7 +142,7 @@ Item {
     return root.storeReady
   }
 
-  // dueInput is a bare date ("2026-09-30", "hoy", "+3", ...) resolved against
+  // dueInput is a bare date ("2026-09-30", "today", "+3", ...) resolved against
   // today; timeInput is optional "HH:MM". leadHours is the advance warning.
   function add(title, dueInput, timeInput, leadHours, notes, leadMode) {
     if (!root.ensureStoreReady()) return false

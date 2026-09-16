@@ -80,7 +80,7 @@ Panel {
 
   readonly property var viewWeeks: Model.monthGrid(root.viewYear, root.viewMonth)
 
-  // Resolves whatever the user typed ("hoy", "+3", an ISO date) so the
+  // Resolves whatever the user typed (e.g. "today", "+3", an ISO date) so the
   // calendar can highlight it; "" means "not on a real date yet".
   readonly property string selection: Model.parseDue(root.dueInput, root.today)
 
@@ -417,7 +417,7 @@ Panel {
                 foreground: root.fg
                 accent: root.accent
                 onClicked: root.pickDate(Model.todayStamp())
-                tooltipText: "Elegir el día de hoy"
+                tooltipText: "Pick today"
               }
             }
           }
@@ -540,7 +540,7 @@ Panel {
                 id: customField
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                placeholderText: "Número"
+                placeholderText: "Number"
                 text: root.customLeadValue
                 onTextChanged: root.customLeadValue = text
                 onAccepted: root.applyCustomLead()
@@ -594,7 +594,7 @@ Panel {
                 id: remindInField
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
-                placeholderText: "Número"
+                placeholderText: "Number"
                 text: root.remindInValue
                 onTextChanged: root.remindInValue = text
                 onAccepted: root.applyRemindIn()
