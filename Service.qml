@@ -33,6 +33,18 @@ Item {
   property var tasks: Model.parse("")
   property bool storeReady: false
 
+  // Last removed task, kept so the panel can offer "Undo" in-memory.
+  property var lastDeleted: null
+  readonly property bool canUndo: root.lastDeleted !== null
+
+  // Feedback for the panel's export/import side actions.
+  property string sideMessage: ""
+
+  readonly property string exportJsonPath: Quickshell.env("HOME") + "/CronosBaul/Cronos-export.json"
+  readonly property string exportIcsPath: Quickshell.env("HOME") + "/CronosBaul/Cronos-export.ics"
+  readonly property string importJsonPath: Quickshell.env("HOME") + "/CronosBaul/Cronos-import.json"
+  readonly property string importIcsPath: Quickshell.env("HOME") + "/CronosBaul/Cronos-import.ics"
+
   property real nowMs: Date.now()
   readonly property string today: Model.todayStamp()
   readonly property int openCount: Model.openTasks(root.tasks).length
@@ -122,11 +134,16 @@ Item {
     var lead = Number(task.leadHours) || 0
     if (lead > 0) line += " · reminder " + Model.leadLabel(lead) + " before"
 
+    // Jump to "critical" when the deadline is within the hour or already past;
+    // otherwise stay "normal" so routine reminders stay quiet.
+    var urgency = "normal"
+    if (!isNaN(dueMs) && dueMs <= root.nowMs + 3600000) urgency = "critical"
+
     Quickshell.execDetached([
       root.omarchyPath + "/bin/omarchy-notification-send",
       "--app-name", "cronos",
       "-g", "",
-      "-u", "normal",
+      "-u", urgency,
       "Task due",
       task.title + "\n" + line
     ])
@@ -144,19 +161,56 @@ Item {
 
   // dueInput is a bare date ("2026-09-30", "today", "+3", ...) resolved against
   // today; timeInput is optional "HH:MM". leadHours is the advance warning.
-  function add(title, dueInput, timeInput, leadHours, notes, leadMode) {
+  function add(title, dueInput, timeInput, leadHours, notes, leadMode, tags) {
     if (!root.ensureStoreReady()) return false
     var t = String(title || "").trim()
     var iso = Model.parseDue(dueInput, root.today)
     if (!t || !iso) return false
-    root.tasks = root.tasks.concat([Model.makeTask(t, Model.composeDue(iso, timeInput), leadHours, Date.now(), notes, leadMode)])
+    root.tasks = root.tasks.concat([Model.makeTask(t, Model.composeDue(iso, timeInput), leadHours, Date.now(), notes, leadMode, tags)])
+    root.save()
+    return true
+  }
+
+  // Replace the editable fields of an existing task. Re-arms the reminder (the
+  // reminder moment moves) unless the task is completed.
+  function editTask(id, title, dueInput, timeInput, leadHours, notes, leadMode, tags) {
+    if (!root.ensureStoreReady()) return false
+    var t = String(title || "").trim()
+    var iso = Model.parseDue(dueInput, root.today)
+    if (!t || !iso) return false
+    var found = false
+    root.tasks = root.tasks.map(function(task) {
+      if (task.id !== id) return task
+      found = true
+      var copy = {}
+      for (var k in task) copy[k] = task[k]
+      copy.title = t
+      copy.notes = String(notes || "").trim()
+      copy.due = Model.composeDue(iso, timeInput)
+      copy.leadHours = Math.max(0, Math.min(8760, parseFloat(leadHours) || 0))
+      copy.leadMode = leadMode === "day" ? "day" : "exact"
+      copy.tags = Model.normalizeTags(tags)
+      if (!copy.done) copy.firedAt = null
+      return copy
+    })
+    if (!found) return false
     root.save()
     return true
   }
 
   function removeTask(id) {
     if (!root.ensureStoreReady()) return
+    for (var i = 0; i < root.tasks.length; i++) {
+      if (root.tasks[i].id === id) root.lastDeleted = root.tasks[i]
+    }
     root.tasks = root.tasks.filter(function(t) { return t.id !== id })
+    root.save()
+  }
+
+  function restoreLast() {
+    if (!root.lastDeleted || !root.ensureStoreReady()) return
+    root.tasks = root.tasks.concat([root.lastDeleted])
+    root.lastDeleted = null
     root.save()
   }
 
@@ -187,6 +241,101 @@ Item {
       "cronos",
       root.stateDir, payload, root.statePath
     ])
+  }
+
+  // ---- exchange (JSON + ICS) -------------------------------------------
+  //
+  // Export writes fresh files under $HOME; import reads fixed paths there. All
+  // files are ours: never written into omarchy.clock's store or any calendar
+  // app's data. A file that doesn't exist becomes an onLoadFailed notice.
+
+  function writeExport(filePath, payload) {
+    Quickshell.execDetached([
+      "bash", "-c",
+      "mkdir -p \"$(dirname \"$1\")\" && printf '%s' \"$2\" > \"$1\"",
+      "cronos", filePath, payload
+    ])
+  }
+
+  function exportJson() {
+    root.writeExport(root.exportJsonPath, Model.serialize(root.tasks))
+    root.sideMessage = "\u2713 Exported " + root.tasks.length + " task(s) to ~/Cronos-export.json"
+  }
+
+  function exportIcs() {
+    root.writeExport(root.exportIcsPath, Model.exportICS(root.tasks))
+    root.sideMessage = "\u2713 Exported " + root.tasks.length + " task(s) to ~/Cronos-export.ics"
+  }
+
+  function importJson() {
+    if (!root.ensureStoreReady()) return
+    root.sideMessage = "Importing ~/Cronos-import.json…"
+    jsonImport.reload()
+  }
+
+  function importIcs() {
+    if (!root.ensureStoreReady()) return
+    root.sideMessage = "Importing ~/Cronos-import.ics…"
+    icsImport.reload()
+  }
+
+  // Merge parsed items into the store. Duplicates (same title and due) are
+  // skipped, incoming ids are regenerated so they can never collide.
+  function applyImported(items, ext) {
+    var valid = 0
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i]
+      if (!String(item.title || "").trim() || isNaN(Model.dueMs(item))) continue
+      var dup = root.tasks.some(function(t) {
+        return t.title === item.title && t.due === item.due
+      })
+      if (dup) continue
+      var copy = {
+        id: Model.newId(),
+        title: String(item.title).trim(),
+        notes: String(item.notes || "").trim(),
+        tags: Model.normalizeTags(item.tags),
+        due: String(item.due || ""),
+        leadHours: Math.max(0, Math.min(8760, parseFloat(item.leadHours) || 0)),
+        leadMode: ("day" === item.leadMode) ? "day"
+          : (Number(item.leadHours) % 24 === 0 && Number(item.leadHours) > 0 ? "day" : "exact"),
+        firedAt: null,
+        done: item.done === true,
+        createdAt: Date.now()
+      }
+      valid++
+      root.tasks = root.tasks.concat([copy])
+    }
+    if (valid > 0) root.save()
+    if (valid === items.length) {
+      root.sideMessage = "\u2713 Imported " + valid + " task(s) from ~/Cronos-import." + ext
+    } else if (valid > 0) {
+      root.sideMessage = "\u2713 Imported " + valid + " of " + items.length + " (duplicates skipped)"
+    } else {
+      root.sideMessage = items.length === 0
+        ? "Nothing readable in ~/Cronos-import." + ext
+        : "Nothing new to import from ~/Cronos-import." + ext + " (all duplicates)"
+    }
+  }
+
+  // Import targets are read on demand. A missing file surfaces as onLoadFailed
+  // (no auto-import at boot, so a stray file can't surprise the user).
+  FileView {
+    id: jsonImport
+    path: root.importJsonPath
+    watchChanges: false
+    printErrors: false
+    onLoaded: root.applyImported(Model.importList(text()), "json")
+    onLoadFailed: root.sideMessage = "\u2715 No ~/Cronos-import.json found"
+  }
+
+  FileView {
+    id: icsImport
+    path: root.importIcsPath
+    watchChanges: false
+    printErrors: false
+    onLoaded: root.applyImported(Model.parseICS(text()), "ics")
+    onLoadFailed: root.sideMessage = "\u2715 No ~/Cronos-import.ics found"
   }
 
   Component.onCompleted: {

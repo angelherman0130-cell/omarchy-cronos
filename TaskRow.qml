@@ -13,10 +13,13 @@ Item {
   required property real nowMs
   required property var service
 
+  signal editRequested(var task)
+
   readonly property var task: modelData
 
   readonly property bool done: task.done === true
   readonly property bool hasNotes: typeof row.task.notes === "string" && row.task.notes !== ""
+  readonly property bool hasTags: Array.isArray(row.task.tags) && row.task.tags.length > 0
   readonly property bool reminderDue: Model.reminderDueNow(task, row.nowMs)
   readonly property bool overdue: !done && !isNaN(Model.dueMs(task)) && row.nowMs > Model.dueMs(task)
 
@@ -67,6 +70,17 @@ Item {
       }
 
       Text {
+        visible: row.hasTags
+        textFormat: Text.PlainText
+        text: (row.task.tags || []).map(function(t) { return "#" + t }).join("  ")
+        color: row.muted
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideRight
+        width: parent.width
+      }
+
+      Text {
         textFormat: Text.PlainText
         text: row.statusLine
         color: row.reminderDue ? Color.urgent : row.muted
@@ -75,6 +89,13 @@ Item {
         width: parent.width
         elide: Text.ElideRight
       }
+    }
+
+    PanelActionButton {
+      iconText: "\u270E"
+      foreground: row.muted
+      tooltipText: "Edit"
+      onClicked: row.editRequested(task)
     }
 
     PanelActionButton {

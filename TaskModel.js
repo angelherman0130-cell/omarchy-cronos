@@ -193,6 +193,20 @@ function needsAttention(tasks, nowMs) {
 
 // ---- persistence ---------------------------------------------------
 
+// Tags arrive as an array of strings or as a comma/space separated string in
+// imports; always ends up as a sorted array of unique trimmed lowercase tags.
+function normalizeTags(value) {
+  var list = []
+  if (Array.isArray(value)) list = value
+  else if (value !== null && value !== undefined) list = String(value).split(/[,\s]+/)
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    var tag = String(list[i]).trim().toLowerCase()
+    if (tag !== "" && out.indexOf(tag) === -1) out.push(tag)
+  }
+  return out.sort()
+}
+
 function normalizeTask(t) {
   if (!t || typeof t !== "object") return null
   var lead = t.leadHours !== null && t.leadHours !== undefined
@@ -202,6 +216,7 @@ function normalizeTask(t) {
     id: String(t.id || ""),
     title: String(t.title || ""),
     notes: t.notes !== null && t.notes !== undefined ? String(t.notes) : "",
+    tags: normalizeTags(t.tags),
     due: String(t.due || ""),
     leadHours: isFinite(lead) ? Math.max(0, Math.min(8760, lead)) : 0,
     // "day" = whole-days presets/legacy (reminds on the day, ignoring time);
@@ -229,6 +244,8 @@ function parse(text) {
   return []
 }
 
+function normalizeTagsPublic(value) { return normalizeTags(value) }
+
 function serialize(tasks) {
   return JSON.stringify(tasks, null, 2)
 }
@@ -247,6 +264,72 @@ function openTasks(tasks) {
 
 function closedTasks(tasks) {
   return tasks.filter(function(t) { return t.done === true })
+}
+
+// Distinct tags present on the given tasks, sorted alphabetically.
+function tagsOf(tasks) {
+  var seen = []
+  for (var i = 0; i < tasks.length; i++) {
+    var tags = tasks[i].tags || []
+    for (var j = 0; j < tags.length; j++) {
+      if (seen.indexOf(tags[j]) === -1) seen.push(tags[j])
+    }
+  }
+  return seen.sort()
+}
+
+// Sort an open-task list for the panel. Modes:
+//   "due"     — soonest deadline first, no-deadline tasks last
+//   "overdue" — overdue first (by deadline), then reminders due, then the rest
+//   "title"   — alphabetical
+//   "created" — most recently created first
+// An empty tag keeps every task; otherwise only tasks carrying that tag.
+function orderTasks(tasks, mode, tag) {
+  function hasTag(t) {
+    return !tag || (t.tags || []).indexOf(tag) !== -1
+  }
+  var filtered = tasks.filter(hasTag)
+  if (mode === "title") {
+    return filtered.slice().sort(function(a, b) {
+      return String(a.title).localeCompare(String(b.title))
+    })
+  }
+  if (mode === "created") {
+    return filtered.slice().sort(function(a, b) {
+      return (b.createdAt || 0) - (a.createdAt || 0)
+    })
+  }
+  if (mode === "overdue") {
+    return filtered.slice().sort(function(a, b) {
+      var sa = rank(a), sb = rank(b)
+      if (sa !== sb) return sa - sb
+      return (dueMs(a) || Infinity) - (dueMs(b) || Infinity)
+    })
+  }
+  return filtered.slice().sort(function(a, b) {
+    return (dueMs(a) || Infinity) - (dueMs(b) || Infinity)
+  })
+  function rank(t) {
+    if (t.done === true) return 4
+    var due = dueMs(t)
+    if (!isNaN(due) && due < Date.now()) return 0
+    if (reminderDueNow(t, Date.now())) return 1
+    if (!isNaN(due)) return 2
+    return 3
+  }
+}
+
+// Map of "YYYY-MM-DD" -> count of open tasks due on that day. Drives the
+// "has tasks" mark in the panel's date-picker calendar.
+function tasksAtDayMap(tasks) {
+  var map = {}
+  tasks.forEach(function(t) {
+    if (t.done === true) return
+    var d = datePart(t.due)
+    if (!d) return
+    map[d] = (map[d] || 0) + 1
+  })
+  return map
 }
 
 // ---- labels --------------------------------------------------------
@@ -286,11 +369,12 @@ function newId() {
   return Date.now().toString(36) + Math.floor(Math.random() * 1e9).toString(36)
 }
 
-function makeTask(title, dueValue, leadHours, createdAt, notes, leadMode) {
+function makeTask(title, dueValue, leadHours, createdAt, notes, leadMode, tags) {
   return {
     id: newId(),
     title: String(title || "").trim(),
     notes: String(notes || "").trim(),
+    tags: normalizeTags(tags),
     due: String(dueValue || ""),
     leadHours: Math.max(0, Math.min(8760, parseFloat(leadHours) || 0)),
     leadMode: leadMode === "day" ? "day" : "exact",
@@ -328,12 +412,14 @@ function composeDue(dateIso, time) {
 
 // ---- date-picker grid -------------------------------------------------
 //
-// Monday-first six-row month grid. Returns weeks of day cells.
-function monthGrid(year, month) {
+// Monday-first six-row month grid. Returns weeks of day cells. Pass a map
+// from tasksAtDayMap() to flag days that carry open tasks ("hasTasks").
+function monthGrid(year, month, dayMap) {
   var first = new Date(year, month, 1)
   var leading = (first.getDay() - 1 + 7) % 7
   var cursor = new Date(year, month, 1 - leading)
   var today = todayStamp()
+  var map = dayMap || {}
   var weeks = []
   for (var w = 0; w < 6; w++) {
     var days = []
@@ -343,7 +429,9 @@ function monthGrid(year, month) {
         key: key,
         day: cursor.getDate(),
         inMonth: cursor.getMonth() === month && cursor.getFullYear() === year,
-        today: key === today
+        today: key === today,
+        hasTasks: (map[key] || 0) > 0,
+        taskCount: map[key] || 0
       })
       cursor.setDate(cursor.getDate() + 1)
     }
@@ -355,6 +443,142 @@ function monthGrid(year, month) {
 function stepMonth(year, month, delta) {
   var target = new Date(year, Number(month) + Number(delta), 1)
   return { year: target.getFullYear(), month: target.getMonth() }
+}
+
+// ---- calendar interop (ICS / RFC 5545) -------------------------------
+
+function icsEscape(s) {
+  return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
+    .replace(/,/g, "\\,").replace(/\n/g, "\\n")
+}
+
+// Fold lines to <= 75 octets as RFC 5545 wants ("\r\n " continuation).
+function icsFold(text) {
+  return text.split(/\r?\n/).map(function(line) {
+    var out = []
+    while (line.length > 75) {
+      out.push(line.slice(0, 75))
+      line = " " + line.slice(75)
+    }
+    out.push(line)
+    return out
+  }).reduce(function(a, b) { return a.concat(b) }, []).join("\r\n")
+}
+
+function icsStamp(dateIso) {
+  var m = dateIso.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/)
+  if (!m) return ""
+  var base = m[1] + m[2] + m[3]
+  return m[4] ? base + "T" + m[4] + m[5] + "00" : base
+}
+
+// Negative ISO-8601 duration from an advance in hours, e.g. -PT90M.
+function icsTrigger(leadHours) {
+  var totalMin = Math.round((Number(leadHours) || 0) * 60)
+  if (totalMin <= 0) return ""
+  var h = Math.floor(totalMin / 60)
+  var m = totalMin % 60
+  return "-PT" + h + "H" + m + "M"
+}
+
+function exportICS(tasks) {
+  var lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//omarchy//Cronos//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH"
+  ]
+  tasks.forEach(function(t) {
+    var stamp = icsStamp(t.due)
+    if (!stamp) return
+    lines.push("BEGIN:VEVENT", "UID:" + (t.id || newId()) + "@cronos")
+    lines.push("DTSTAMP:" + icsStamp(localIso(Date.now()).replace(" ", "T")))
+    if (stamp.indexOf("T") === -1) {
+      lines.push("DTSTART;VALUE=DATE:" + stamp)
+      lines.push("DTEND;VALUE=DATE:" + shiftDate(t.due, 1))
+    } else {
+      var endMs = dueMs(t)
+      var plus = isNaN(endMs) ? Date.now() + 3600000 : endMs + 3600000
+      lines.push("DTSTART:" + stamp)
+      lines.push("DTEND:" + icsStamp(localIso(plus).replace(" ", "T")))
+    }
+    lines.push("SUMMARY:" + icsEscape(t.title))
+    if (t.notes) lines.push("DESCRIPTION:" + icsEscape(t.notes))
+    if (t.tags && t.tags.length) lines.push("CATEGORIES:" + t.tags.map(icsEscape).join(","))
+    lines.push("STATUS:" + (t.done === true ? "CANCELLED" : "CONFIRMED"))
+    var lead = Number(t.leadHours) || 0
+    if (lead > 0) {
+      var trig = icsTrigger(lead)
+      if (trig) {
+        lines.push(
+          "BEGIN:VALARM",
+          "ACTION:DISPLAY",
+          "TRIGGER:" + trig,
+          "DESCRIPTION:" + icsEscape(t.title),
+          "END:VALARM"
+        )
+      }
+    }
+    lines.push("END:VEVENT")
+  })
+  lines.push("END:VCALENDAR")
+  return icsFold(lines.join("\r\n"))
+}
+
+// Minimal VEVENT reader: date, title, notes, STATUS and the VALARM lead.
+// Produces task-like objects (without ids) ready for importTasks().
+function parseICS(text) {
+  var out = []
+  var blocks = String(text || "").split(/BEGIN:VEVENT/i).slice(1)
+  for (var i = 0; i < blocks.length; i++) {
+    var end = blocks[i].indexOf("END:VEVENT")
+    var block = end >= 0 ? blocks[i].slice(0, end) : blocks[i]
+    var raw = block.replace(/\r\n[ \t]/g, "").split(/\r?\n/)
+    var props = {}
+    for (var j = 0; j < raw.length; j++) {
+      var line = raw[j]
+      var ci = line.indexOf(":")
+      if (ci < 0) continue
+      var key = line.slice(0, ci).toUpperCase().split(";")[0]
+      if (key === "BEGIN" || key === "END" || key === "ACTION") continue
+      var val = line.slice(ci + 1)
+      if (props[key] !== undefined) props[key] += "\n" + val
+      else props[key] = val
+    }
+    var title = (props.SUMMARY || "").replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim()
+    var dt = String(props.DTSTART || "").replace(/^[^:]*:/, "").split(";")[0]
+    var m = dt.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/)
+    if (!m || !title) continue
+    var dueDate = m[1] + "-" + m[2] + "-" + m[3]
+    var due = m[4] ? dueDate + "T" + m[4] + ":" + m[5] : dueDate
+    var notes = (props.DESCRIPTION || "").replace(/\\n/g, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\").trim()
+    var status = String(props.STATUS || "").toUpperCase()
+    var categories = String(props.CATEGORIES || "").split(",")
+      .map(function(s) { return s.replace(/\\,/g, ",").trim().toLowerCase() })
+      .filter(function(s) { return s !== "" })
+    var dur = String(props.TRIGGER || "").match(/^-?P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/)
+    var leadHours = 0
+    if (dur) leadHours = (+(dur[1] || 0)) * 24 + (+(dur[2] || 0)) + (+(dur[3] || 0)) / 60 + (+(dur[4] || 0)) / 3600
+    out.push({
+      title: title,
+      notes: notes,
+      tags: categories,
+      due: due,
+      done: status === "CANCELLED",
+      leadHours: leadHours
+    })
+  }
+  return out
+}
+
+// Import a round-tripped JSON dump: normalize, drop empties, and re-id so the
+// incoming ids can never collide with tasks that already exist.
+function importList(text) {
+  return parse(text).map(function(t) {
+    t.id = newId()
+    return t
+  })
 }
 
 // ---- encoding ------------------------------------------------------
@@ -414,6 +638,10 @@ if (typeof module !== "undefined") {
     sortByDue: sortByDue,
     openTasks: openTasks,
     closedTasks: closedTasks,
+    normalizeTags: normalizeTagsPublic,
+    tagsOf: tagsOf,
+    orderTasks: orderTasks,
+    tasksAtDayMap: tasksAtDayMap,
     leadLabel: leadLabel,
     humanDue: humanDue,
     newId: newId,
@@ -423,6 +651,9 @@ if (typeof module !== "undefined") {
     composeDue: composeDue,
     monthGrid: monthGrid,
     stepMonth: stepMonth,
+    exportICS: exportICS,
+    parseICS: parseICS,
+    importList: importList,
     utf8Base64: utf8Base64
   }
 }

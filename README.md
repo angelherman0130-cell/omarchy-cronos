@@ -25,6 +25,34 @@ It includes a completed-tasks section, loss-proof persistence (atomic writes
 + backup file) and automatic migration from the previous plugin version
 (`angelherman.taskboard`).
 
+## Editing and organizing
+
+- **Edit** any pending task (✎) to change its title, note, deadline, reminder
+  or tags — the form reopens pre-filled and "Add" becomes "Save".
+- **Undo** a deleted task (it is kept in memory until you delete another one).
+- **Tags** (comma separated) show as `#tag` and can be used as a filter.
+- Sort the pending list: near first, overdue first, by name, or newest.
+- Days that carry open tasks are **underlined with an accent in the date
+  picker**, so you can spot a busy month at a glance.
+
+## Import / Export
+
+Buttons at the bottom of the panel exchange tasks with plain files in a
+`~/CronosBaul/` folder (created automatically on first export) — nothing is
+written into other apps or the shell clock:
+
+| Action  | File                         | Notes                                        |
+|---------|------------------------------|----------------------------------------------|
+| Export  | `~/CronosBaul/Cronos-export.json` | Round-trip copy (tags, reminders, notes) |
+| Export  | `~/CronosBaul/Cronos-export.ics`  | Standard calendar file, openable in GNOME |
+|         |                              | Calendar/Evolution/Google (double-click)     |
+| Import  | `~/CronosBaul/Cronos-import.json` | Merges new tasks (duplicates skipped)    |
+| Import  | `~/CronosBaul/Cronos-import.ics`  | Merges VEVENTs (date, title, notes, reminder) |
+
+Import is on demand (no auto-load at boot); duplicates are kept out by title
++ due date. ICS files use RFC 5545 with a `VALARM` reminder and `CATEGORIES`
+tags.
+
 ## Installation
 
 From the marketplace:

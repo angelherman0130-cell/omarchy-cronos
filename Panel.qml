@@ -27,8 +27,28 @@ Panel {
   readonly property string today: service ? service.today : Model.todayStamp()
   readonly property int defaultLeadHours: parseInt(setting("defaultLeadHours", 24), 10) || 24
   readonly property real nowMs: service ? service.nowMs : Date.now()
-  readonly property var openTasks: service ? service.sortedOpenTasks : []
+  readonly property var openTasks: service
+    ? Model.orderTasks(Model.openTasks(service.tasks), root.sortMode, root.tagFilter)
+    : []
   readonly property var doneTasks: service ? service.sortedDoneTasks : []
+
+  readonly property var sortOptions: [
+    { value: "due",     label: "Near first"     },
+    { value: "overdue", label: "Overdue first"  },
+    { value: "title",   label: "Name"           },
+    { value: "created", label: "Newest"         }
+  ]
+
+  readonly property var tagOptions: {
+    var tags = service ? Model.tagsOf(Model.openTasks(service.tasks)) : []
+    var opts = [{ value: "", label: "All tags" }]
+    for (var i = 0; i < tags.length; i++) opts.push({ value: tags[i], label: tags[i] })
+    return opts
+  }
+
+  readonly property var dayMap: service
+    ? Model.tasksAtDayMap(Model.openTasks(service.tasks))
+    : {}
 
   readonly property string summary: {
     var parts = root.dueInput
@@ -42,6 +62,7 @@ Panel {
 
   property string titleText: ""
   property string notesText: ""
+  property string tagsText: ""
   property string dueInput: ""
   property string dueTime: ""
   property string leadValue: String(defaultLeadHours)
@@ -52,6 +73,10 @@ Panel {
   property string remindInUnit: "min"
   property string formNotice: ""
   property string activeCard: ""
+  property bool editingTask: false
+  property string editingId: ""
+  property string sortMode: "due"
+  property string tagFilter: ""
   property int viewYear: new Date().getFullYear()
   property int viewMonth: new Date().getMonth()
 
@@ -78,7 +103,7 @@ Panel {
     { value: "h",   label: "hours" }
   ]
 
-  readonly property var viewWeeks: Model.monthGrid(root.viewYear, root.viewMonth)
+  readonly property var viewWeeks: Model.monthGrid(root.viewYear, root.viewMonth, root.dayMap)
 
   // Resolves whatever the user typed (e.g. "today", "+3", an ISO date) so the
   // calendar can highlight it; "" means "not on a real date yet".
@@ -143,18 +168,48 @@ Panel {
   function resetForm() {
     root.titleText = ""
     root.notesText = ""
+    root.tagsText = ""
     root.dueInput = ""
     root.dueTime = ""
     root.customLeadValue = ""
     root.remindInValue = ""
     root.formNotice = ""
     root.activeCard = ""
+    root.editingTask = false
+    root.editingId = ""
     root.resetCalendarView()
+  }
+
+  // Reopens the panel with an existing task's fields loaded; "Add" becomes
+  // "Save" and saves back into the same task.
+  function startEdit(task) {
+    root.editingId = task.id
+    root.editingTask = true
+    root.titleText = task.title
+    root.notesText = task.notes || ""
+    root.tagsText = (task.tags || []).join(", ")
+    root.dueInput = Model.datePart(task.due)
+    root.dueTime = Model.timePart(task.due)
+    root.leadValue = String(task.leadHours || 0)
+    root.leadMode = task.leadMode === "day" ? "day" : "exact"
+    root.customLeadValue = ""
+    root.remindInValue = ""
+    root.formNotice = ""
+    root.activeCard = ""
+    root.resetCalendarView()
+    root.open()
+    Qt.callLater(function() {
+      titleField.forceActiveFocus()
+      titleField.selectAll()
+    })
   }
 
   function submit() {
     if (!root.service) return
-    if (root.service.add(root.titleText, root.dueInput, root.dueTime, root.leadValue, root.notesText, root.leadMode)) {
+    var ok = root.editingTask
+      ? root.service.editTask(root.editingId, root.titleText, root.dueInput, root.dueTime, root.leadValue, root.notesText, root.leadMode, root.tagsText)
+      : root.service.add(root.titleText, root.dueInput, root.dueTime, root.leadValue, root.notesText, root.leadMode, root.tagsText)
+    if (ok) {
       root.resetForm()
       titleField.forceActiveFocus()
     } else {
@@ -177,6 +232,7 @@ Panel {
       anchors.fill: parent
       blocked: titleField.activeFocus || timeField.activeFocus
         || customField.activeFocus || remindInField.activeFocus
+        || tagsField.activeFocus
         || unitField.popupOpen || remindUnit.popupOpen
       onCloseRequested: root.close()
     }
@@ -193,7 +249,7 @@ Panel {
 
         Text {
           textFormat: Text.PlainText
-          text: "Cronos"
+          text: root.editingTask ? "Edit task" : "Cronos"
           color: root.fg
           font.family: Style.font.family
           font.pixelSize: Style.font.heading
@@ -225,6 +281,14 @@ Panel {
           placeholderText: "Description or notes (optional)"
           text: root.notesText
           onTextChanged: root.notesText = text
+        }
+
+        TextField {
+          id: tagsField
+          Layout.fillWidth: true
+          placeholderText: "Tags (comma separated, optional)"
+          text: root.tagsText
+          onTextChanged: root.tagsText = text
         }
 
         RowLayout {
@@ -381,6 +445,21 @@ Panel {
                           font.family: Style.font.family
                           font.pixelSize: Style.font.bodySmall
                           font.bold: modelData.today
+                          // Days with open tasks get an accent underline.
+                          style: (modelData !== undefined && modelData.hasTasks && !cell.selected)
+                            ? Text.Underline : Text.Normal
+                          styleColor: root.accent
+                        }
+
+                        Rectangle {
+                          width: 4
+                          height: 4
+                          radius: 2
+                          color: root.accent
+                          anchors.horizontalCenter: parent.horizontalCenter
+                          anchors.bottom: parent.bottom
+                          anchors.bottomMargin: 2
+                          visible: modelData.hasTasks
                         }
                       }
 
@@ -521,7 +600,7 @@ Panel {
               }
             }
 
-            PanelSeparator { Layout.fillWidth: true }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.muted, 0.35) }
 
             Text {
               textFormat: Text.PlainText
@@ -575,7 +654,7 @@ Panel {
               Layout.fillWidth: true
             }
 
-            PanelSeparator { Layout.fillWidth: true }
+            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.muted, 0.35) }
 
             Text {
               textFormat: Text.PlainText
@@ -647,7 +726,7 @@ Panel {
           }
 
           Button {
-            text: "＋ Add"
+            text: root.editingTask ? "Save" : "＋ Add"
             accent: root.accent
             foreground: root.fg
             focusable: true
@@ -655,12 +734,65 @@ Panel {
           }
         }
 
-        PanelSeparator { Layout.fillWidth: true }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.muted, 0.35) }
 
         PanelSectionHeader {
           Layout.fillWidth: true
           text: "Tasks"
           foreground: root.fg
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.spacing.controlGap
+
+          Dropdown {
+            id: sortField
+            Layout.preferredWidth: Style.space(130)
+            Layout.alignment: Qt.AlignVCenter
+            showLabel: false
+            options: root.sortOptions
+            value: root.sortMode
+            onChanged: function(v) { root.sortMode = v }
+          }
+
+          Dropdown {
+            id: tagField
+            Layout.preferredWidth: Math.max(
+              Style.space(90),
+              layout.width - sortField.implicitWidth - Style.spacing.controlGap)
+            Layout.alignment: Qt.AlignVCenter
+            showLabel: false
+            options: root.tagOptions
+            value: root.tagFilter
+            onChanged: function(v) { root.tagFilter = v }
+          }
+        }
+
+        RowLayout {
+          Layout.fillWidth: true
+          visible: root.service && root.service.canUndo
+          spacing: Style.spacing.controlGap
+
+          Text {
+            textFormat: Text.PlainText
+            text: root.service && root.service.lastDeleted
+              ? "Deleted \"" + root.service.lastDeleted.title + "\""
+              : ""
+            color: root.muted
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideRight
+            Layout.fillWidth: true
+          }
+
+          Button {
+            text: "Undo"
+            accent: root.accent
+            foreground: root.fg
+            onClicked: root.service.restoreLast()
+            tooltipText: "Restore the last deleted task"
+          }
         }
 
         Item {
@@ -691,6 +823,7 @@ Panel {
                   width: openColumn.width
                   nowMs: root.nowMs
                   service: root.service
+                  onEditRequested: root.startEdit(modelData)
                 }
               }
             }
@@ -759,6 +892,60 @@ Panel {
             anchors.left: parent.left
             anchors.right: parent.right
           }
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.muted, 0.35) }
+
+        RowLayout {
+          Layout.fillWidth: true
+          spacing: Style.spacing.controlGap
+
+          Button {
+            Layout.fillWidth: true
+            text: "Export .ics"
+            foreground: root.fg
+            accent: root.accent
+            onClicked: root.service.exportIcs()
+            tooltipText: "Writes ~/Cronos-export.ics for any calendar app"
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: "Export .json"
+            foreground: root.fg
+            accent: root.accent
+            onClicked: root.service.exportJson()
+            tooltipText: "Writes ~/Cronos-export.json"
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: "Import .ics"
+            foreground: root.fg
+            accent: root.accent
+            onClicked: root.service.importIcs()
+            tooltipText: "Reads ~/Cronos-import.ics"
+          }
+
+          Button {
+            Layout.fillWidth: true
+            text: "Import .json"
+            foreground: root.fg
+            accent: root.accent
+            onClicked: root.service.importJson()
+            tooltipText: "Reads ~/Cronos-import.json"
+          }
+        }
+
+        Text {
+          visible: root.service && root.service.sideMessage !== ""
+          textFormat: Text.PlainText
+          text: root.service ? root.service.sideMessage : ""
+          color: root.muted
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+          Layout.fillWidth: true
         }
       }
     }
