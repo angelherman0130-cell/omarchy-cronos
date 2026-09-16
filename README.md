@@ -1,58 +1,57 @@
 # Cronos
 
-Bar widget y servicio para Omarchy con tareas y recordatorios con fecha límite.
+Bar widget and service for Omarchy with tasks and deadline reminders.
 
-![Captura de Cronos en la barra](docs/screenshot.png)
+![Cronos panel in the Omarchy bar](docs/screenshot.png)
 
-Un acceso rápido en la barra te deja anotar una tarea (título, nota opcional,
-fecha y hora límite) y elegir cuándo avisarte:
+A quick access in the bar lets you add a task (title, optional note, due date
+and time) and choose when to be reminded:
 
-- **Modo día**: avisa el mismo día del vencimiento (por ejemplo "1 día antes"),
-  5 minutos después de cada inicio de sesión y cada 5 horas hasta que la avises.
-- **Modo exacto**: avisa en el momento exacto configurado ("Momento", "1 h",
-  "3 h", "6 h", "12 h"), con los campos personalizados "Recordar antes de la
-  hora límite" (min/h) o "Recuérdame en" (min/h).
-- Si la máquina estaba apagada cuando tocaba avisar, los recordatorios se
-  notifican 5 minutos después del siguiente inicio de sesión.
+- **Day mode**: reminds you on the due day itself (e.g. "1 day before"), five
+  minutes after each login and every five hours until you acknowledge it.
+- **Exact mode**: reminds you at the exact configured time ("At deadline",
+  "1 h", "3 h", "6 h", "12 h"), plus the custom fields "Remind before the
+  deadline" (min/h) or "Remind me in" (min/h).
+- If the machine was off when a reminder was due, it is notified five minutes
+  after the next login.
 
-Incluye una sección de tareas completadas, persistencia a prueba de pérdidas
-(escritura atómica + copia de seguridad) y migración automática desde la
-versión anterior del plugin (`angelherman.taskboard`).
+It includes a completed-tasks section, loss-proof persistence (atomic writes
++ backup file) and automatic migration from the previous plugin version
+(`angelherman.taskboard`).
 
-## Instalación
+## Installation
 
-Desde el marketplace:
+From the marketplace:
 
 ```
 omarchy plugin install angelherman.cronos --enable
 ```
 
-O desde el repositorio:
+Or from the repository:
 
 ```
-omarchy plugin add https://github.com/angelherman/omarchy-cronos.git --enable
+omarchy plugin add https://github.com/angelherman0130-cell/omarchy-cronos.git --enable
 ```
 
-## Uso
+## Usage
 
-1. Haz clic en el icono de Cronos en la barra (o en el contador de tareas
-   urgentes).
-2. Escribe el título, una nota opcional, la fecha/hora límite y el aviso.
-3. Pulsa **＋ Añadir**.
+1. Click the Cronos icon in the bar (or the urgent-task counter).
+2. Type a title, an optional note, the due date/time and the reminder.
+3. Press **＋ Add**.
 
-Las tareas vencidas y sin avisar se marcan con color de urgencia en la barra.
-Completar una tarea la mueve a "Completadas"; la ✕ la elimina.
+Overdue, unacknowledged tasks are highlighted with the urgent color in the
+bar. Completing a task moves it to "Completed"; the ✕ removes it.
 
-El estado se guarda en `~/.local/state/omarchy/cronos/tasks.json`
-(más `tasks.json.bak`).
+State is stored in `~/.local/state/omarchy/cronos/tasks.json`
+(plus `tasks.json.bak`).
 
-## Desarrollo
+## Development
 
 ```
 omarchy plugin validate ~/.config/omarchy/plugins/angelherman.cronos
 qmllint -I "$OMARCHY_PATH/shell" Panel.qml BarWidget.qml Service.qml TaskRow.qml
 ```
 
-## Licencia
+## License
 
 [MIT](LICENSE) © Angel Herman

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "Angel Herman",
   "license": "MIT",
-  "description": "Tareas con fecha límite y recordatorio (días y horas) antes, avisado en el momento o 5 minutos tras iniciar sesión si la máquina estaba apagada",
+  "description": "Tasks with a deadline and reminders (days or exact time), notified at the moment or 5 minutes after login if the machine was off",
   "kinds": [
     "bar-widget",
     "service"
@@ -16,7 +16,7 @@
   },
   "barWidget": {
     "displayName": "Cronos",
-    "description": "Tareas con fecha límite y recordatorio",
+    "description": "Tasks with a deadline and reminder",
     "category": "Info",
     "allowMultiple": false,
     "defaultSection": "right",
