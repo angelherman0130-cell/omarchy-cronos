@@ -55,6 +55,18 @@ Import is on demand (no auto-load at boot); duplicates are kept out by title
 + due date. ICS files use RFC 5545 with a `VALARM` reminder and `CATEGORIES`
 tags.
 
+## Companion calendar
+
+[Cronos Calendar](https://github.com/angelherman0130-cell/omarchy-calendar) is a
+bar clock (date and time) that replaces `omarchy.clock` and shows your Cronos
+tasks on their due days: accent dots in the month grid and the next tasks in a
+"CRONOS TASKS" agenda. Install it together for the full experience:
+
+```
+omarchy plugin add https://github.com/angelherman0130-cell/omarchy-cronos.git --enable
+omarchy plugin add https://github.com/angelherman0130-cell/omarchy-calendar.git --enable
+```
+
 ## Installation
 
 From the marketplace:
