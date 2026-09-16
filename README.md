@@ -2,11 +2,11 @@
 
 Bar widget and service for Omarchy with tasks and deadline reminders.
 
+![Cronos panel in the Omarchy bar](docs/screenshot.png)
+
 ![Cronos date picker](docs/screenshot-date.png)
 
 ![Cronos time picker](docs/screenshot-time.png)
-
-![Cronos panel in the Omarchy bar](docs/screenshot.png)
 
 ![Cronos reminder settings](docs/screenshot-reminder.png)
 
