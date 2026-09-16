@@ -2,6 +2,14 @@
 
 Bar widget and service for Omarchy with tasks and deadline reminders.
 
+![Cronos panel in the Omarchy bar](docs/screenshot.png?v=3)
+
+![Cronos date picker](docs/screenshot-date.png?v=3)
+
+![Cronos time picker](docs/screenshot-time.png?v=3)
+
+![Cronos reminder settings](docs/screenshot-reminder.png?v=3)
+
 A quick access in the bar lets you add a task (title, optional note, due date
 and time) and choose when to be reminded:
 
