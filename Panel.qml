@@ -557,7 +557,7 @@ Panel {
               }
 
               Button {
-                text: "Usar"
+                text: "Use"
                 accent: root.accent
                 foreground: root.fg
                 focusable: true
@@ -611,7 +611,7 @@ Panel {
               }
 
               Button {
-                text: "Usar"
+                text: "Use"
                 accent: root.accent
                 foreground: root.fg
                 focusable: true
