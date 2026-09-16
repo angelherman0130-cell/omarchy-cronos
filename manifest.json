@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "angelherman.cronos",
+  "name": "Cronos",
+  "version": "1.0.0",
+  "author": "Angel Herman",
+  "license": "MIT",
+  "description": "Tareas con fecha límite y recordatorio (días y horas) antes, avisado en el momento o 5 minutos tras iniciar sesión si la máquina estaba apagada",
+  "kinds": [
+    "bar-widget",
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cronos",
+    "description": "Tareas con fecha límite y recordatorio",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "defaultLeadHours": 24
+    },
+    "schema": [
+      {
+        "key": "defaultLeadHours",
+        "type": "integer",
+        "label": "Aviso por defecto (horas)",
+        "description": "Con cuántas horas de antelación avisar por defecto al añadir una tarea.",
+        "min": 0,
+        "max": 8760,
+        "step": 1,
+        "defaultValue": 24
+      }
+    ]
+  }
+}
