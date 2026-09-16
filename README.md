@@ -2,6 +2,8 @@
 
 Bar widget y servicio para Omarchy con tareas y recordatorios con fecha límite.
 
+![Captura de Cronos en la barra](docs/screenshot.png)
+
 Un acceso rápido en la barra te deja anotar una tarea (título, nota opcional,
 fecha y hora límite) y elegir cuándo avisarte:
 
