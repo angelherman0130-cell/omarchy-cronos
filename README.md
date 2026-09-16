@@ -2,6 +2,15 @@
 
 Bar widget and service for Omarchy with tasks and deadline reminders.
 
+> **Best with [Cronos Calendar](https://github.com/angelherman0130-cell/omarchy-calendar)**
+> — the same tasks light up in a full month calendar (dots on busy days and a
+> "CRONOS TASKS" agenda). Install both for the best experience:
+>
+> ```
+> omarchy plugin add https://github.com/angelherman0130-cell/omarchy-cronos.git --enable
+> omarchy plugin add https://github.com/angelherman0130-cell/omarchy-calendar.git --enable
+> ```
+
 ![Cronos panel in the Omarchy bar](docs/screenshot.png?v=3)
 
 ![Cronos date picker](docs/screenshot-date.png?v=3)
