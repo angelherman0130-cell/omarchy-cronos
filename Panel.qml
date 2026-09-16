@@ -4,7 +4,7 @@ import qs.Commons
 import qs.Ui
 import "TaskModel.js" as Model
 
-// Taskboard popup: add a task (title + due date via inline calendar or text +
+// Cronos panel: add a task (title + due date via inline calendar or text +
 // optional time + reminder lead in hours), see the upcoming list, toggle done,
 // delete. All state lives in the service.
 Panel {
@@ -32,11 +32,11 @@ Panel {
 
   readonly property string summary: {
     var parts = root.dueInput
-      ? ["Vence " + Model.humanDue(root.dueInput, root.nowMs)]
-      : ["Sin fecha límite"]
+      ? ["Due " + Model.humanDue(root.dueInput, root.nowMs)]
+      : ["No deadline"]
     if (root.dueTime) parts[0] += " · " + root.dueTime
     var lead = Number(root.leadValue) || 0
-    parts.push("aviso " + Model.leadLabel(lead))
+    parts.push("reminder " + Model.leadLabel(lead))
     return parts.join(" · ")
   }
 
@@ -60,22 +60,22 @@ Panel {
   ]
 
   readonly property var leadPresets: [
-    { value: "0",   label: "Momento", mode: "exact" },
-    { value: "1",   label: "1 h",     mode: "exact" },
-    { value: "3",   label: "3 h",     mode: "exact" },
-    { value: "6",   label: "6 h",     mode: "exact" },
-    { value: "12",  label: "12 h",    mode: "exact" },
-    { value: "24",  label: "1 día",   mode: "day" },
-    { value: "48",  label: "2 días",  mode: "day" },
-    { value: "72",  label: "3 días",  mode: "day" },
-    { value: "120", label: "5 días",  mode: "day" },
-    { value: "168", label: "1 sem",   mode: "day" },
-    { value: "336", label: "2 sem",   mode: "day" }
+    { value: "0",   label: "At deadline", mode: "exact" },
+    { value: "1",   label: "1 h",         mode: "exact" },
+    { value: "3",   label: "3 h",         mode: "exact" },
+    { value: "6",   label: "6 h",         mode: "exact" },
+    { value: "12",  label: "12 h",        mode: "exact" },
+    { value: "24",  label: "1 day",       mode: "day" },
+    { value: "48",  label: "2 days",      mode: "day" },
+    { value: "72",  label: "3 days",      mode: "day" },
+    { value: "120", label: "5 days",      mode: "day" },
+    { value: "168", label: "1 week",      mode: "day" },
+    { value: "336", label: "2 weeks",     mode: "day" }
   ]
 
   readonly property var unitOptions: [
     { value: "min", label: "min" },
-    { value: "h",   label: "horas" }
+    { value: "h",   label: "hours" }
   ]
 
   readonly property var viewWeeks: Model.monthGrid(root.viewYear, root.viewMonth)
@@ -116,7 +116,7 @@ Panel {
   function applyCustomLead() {
     var n = Number(root.customLeadValue)
     if (!isFinite(n) || n <= 0) {
-      root.formNotice = "Escribe un número mayor que 0 en recordatorio personalizado"
+      root.formNotice = "Enter a number greater than 0 in the custom reminder"
       return
     }
     root.leadValue = String(root.customLeadUnit === "min" ? n / 60 : n)
@@ -126,7 +126,7 @@ Panel {
   function applyRemindIn() {
     var n = Number(root.remindInValue)
     if (!isFinite(n) || n <= 0) {
-      root.formNotice = "Escribe un número mayor que 0 en 'Recuérdame en'"
+      root.formNotice = "Enter a number greater than 0 in 'Remind me in'"
       return
     }
     var unitMs = root.remindInUnit === "min" ? 60000 : 3600000
@@ -137,7 +137,7 @@ Panel {
     root.leadValue = "0"
     root.leadMode = "exact"
     root.activeCard = ""
-    root.formNotice = "Se añadirá con aviso en " + n + (root.remindInUnit === "min" ? " min" : " h") + " (vence hoy " + root.dueTime + ")"
+    root.formNotice = "Will be added with a reminder in " + n + (root.remindInUnit === "min" ? " min" : " h") + " (due today " + root.dueTime + ")"
   }
 
   function resetForm() {
@@ -158,7 +158,7 @@ Panel {
       root.resetForm()
       titleField.forceActiveFocus()
     } else {
-      root.formNotice = "Revisa el título y elige una fecha"
+      root.formNotice = "Check the title and pick a date"
     }
   }
 
@@ -213,7 +213,7 @@ Panel {
         TextField {
           id: titleField
           Layout.fillWidth: true
-          placeholderText: "Título de la tarea"
+          placeholderText: "Task title"
           text: root.titleText
           onTextChanged: root.titleText = text
           onAccepted: root.submit()
@@ -222,7 +222,7 @@ Panel {
         TextField {
           id: notesField
           Layout.fillWidth: true
-          placeholderText: "Descripción o apuntes (opcional)"
+          placeholderText: "Description or notes (optional)"
           text: root.notesText
           onTextChanged: root.notesText = text
         }
@@ -234,36 +234,36 @@ Panel {
           Button {
             id: dateButton
             Layout.fillWidth: true
-            text: "Fecha"
+            text: "Date"
             foreground: root.fg
             accent: root.accent
             active: root.activeCard === "date"
             focusable: true
-            tooltipText: "Elegir la fecha de vencimiento"
+            tooltipText: "Choose the due date"
             onClicked: root.toggleCard("date")
           }
 
           Button {
             id: timeButton
             Layout.fillWidth: true
-            text: "Hora"
+            text: "Time"
             foreground: root.fg
             accent: root.accent
             active: root.activeCard === "time"
             focusable: true
-            tooltipText: "Elegir la hora límite de entrega"
+            tooltipText: "Pick the deadline time"
             onClicked: root.toggleCard("time")
           }
 
           Button {
             id: leadButton
             Layout.fillWidth: true
-            text: "Recordatorio"
+            text: "Reminder"
             foreground: root.fg
             accent: root.accent
             active: root.activeCard === "lead"
             focusable: true
-            tooltipText: "Cuánto antes avisarte"
+            tooltipText: "How far in advance to remind you"
             onClicked: root.toggleCard("lead")
           }
         }
@@ -291,7 +291,7 @@ Panel {
               PanelActionButton {
                 iconText: "‹"
                 foreground: root.accent
-                tooltipText: "Mes anterior"
+                tooltipText: "Previous month"
                 onClicked: {
                   var m = Model.stepMonth(root.viewYear, root.viewMonth, -1)
                   root.viewYear = m.year
@@ -305,13 +305,13 @@ Panel {
                 foreground: root.fg
                 accent: root.accent
                 onClicked: root.resetCalendarView()
-                tooltipText: "Volver al mes actual"
+                tooltipText: "Back to current month"
               }
 
               PanelActionButton {
                 iconText: "›"
                 foreground: root.accent
-                tooltipText: "Mes siguiente"
+                tooltipText: "Next month"
                 onClicked: {
                   var m = Model.stepMonth(root.viewYear, root.viewMonth, 1)
                   root.viewYear = m.year
@@ -325,7 +325,7 @@ Panel {
               spacing: 2
 
               Repeater {
-                model: ["L", "M", "X", "J", "V", "S", "D"]
+                model: ["M", "T", "W", "T", "F", "S", "S"]
 
                 Text {
                   Layout.fillWidth: true
@@ -405,7 +405,7 @@ Panel {
 
               Text {
                 textFormat: Text.PlainText
-                text: "Selecciona un día del mes"
+                text: "Select a day of the month"
                 color: root.muted
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
@@ -413,7 +413,7 @@ Panel {
               }
 
               Button {
-                text: "Hoy"
+                text: "Today"
                 foreground: root.fg
                 accent: root.accent
                 onClicked: root.pickDate(Model.todayStamp())
@@ -453,7 +453,7 @@ Panel {
               }
 
               Button {
-                text: "Quitar"
+                text: "Clear"
                 foreground: root.fg
                 accent: root.accent
                 onClicked: root.dueTime = ""
@@ -525,7 +525,7 @@ Panel {
 
             Text {
               textFormat: Text.PlainText
-              text: "Recordar antes de la hora límite"
+              text: "Remind before the deadline"
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.body
@@ -567,7 +567,7 @@ Panel {
 
             Text {
               textFormat: Text.PlainText
-              text: "min = minutos antes · horas = horas antes del vencimiento"
+              text: "min = minutes before · h = hours before the deadline"
               color: root.muted
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
@@ -579,7 +579,7 @@ Panel {
 
             Text {
               textFormat: Text.PlainText
-              text: "Recuérdame en"
+              text: "Remind me in"
               color: root.fg
               font.family: Style.font.family
               font.pixelSize: Style.font.body
@@ -621,7 +621,7 @@ Panel {
 
             Text {
               textFormat: Text.PlainText
-              text: "min = minutos · horas = horas desde ahora: crea la tarea con el aviso dentro de ese tiempo"
+              text: "min = minutes · h = hours from now: creates the task with the reminder within that time"
               color: root.muted
               font.family: Style.font.family
               font.pixelSize: Style.font.caption
@@ -647,7 +647,7 @@ Panel {
           }
 
           Button {
-            text: "＋ Añadir"
+            text: "＋ Add"
             accent: root.accent
             foreground: root.fg
             focusable: true
@@ -659,7 +659,7 @@ Panel {
 
         PanelSectionHeader {
           Layout.fillWidth: true
-          text: "Tareas"
+          text: "Tasks"
           foreground: root.fg
         }
 
@@ -700,7 +700,7 @@ Panel {
             id: openEmpty
             visible: !listArea.openVisible
             textFormat: Text.PlainText
-            text: "No hay tareas pendientes."
+            text: "No pending tasks."
             color: root.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.bodySmall
@@ -711,7 +711,7 @@ Panel {
 
         PanelSectionHeader {
           Layout.fillWidth: true
-          text: "Completadas"
+          text: "Completed"
           foreground: root.fg
         }
 
@@ -752,7 +752,7 @@ Panel {
             id: doneEmpty
             visible: !doneArea.doneVisible
             textFormat: Text.PlainText
-            text: "Sin tareas completadas."
+            text: "No completed tasks."
             color: root.muted
             font.family: Style.font.family
             font.pixelSize: Style.font.bodySmall

@@ -5,7 +5,7 @@ import qs.Ui
 import "TaskModel.js" as Model
 
 // One task row: toggle-done circle, title + status line, delete. Shared by
-// the open ("Tareas") and completed ("Completadas") lists in the panel.
+// the open ("Tasks") and completed ("Completed") lists in the panel.
 Item {
   id: row
 
@@ -37,7 +37,7 @@ Item {
       Layout.preferredWidth: Style.space(24)
       Layout.preferredHeight: Style.space(26)
       onClicked: row.service.toggleDone(task.id)
-      tooltipText: row.done ? "Reabrir" : "Completar"
+      tooltipText: row.done ? "Reopen" : "Complete"
     }
 
     Column {
@@ -81,18 +81,18 @@ Item {
       iconText: "✕"
       foreground: row.muted
       hoverColor: Color.urgent
-      tooltipText: "Eliminar"
+      tooltipText: "Delete"
       onClicked: row.service.removeTask(task.id)
     }
   }
 
   readonly property string statusLine: {
-    if (row.done) return "Completada"
-    var line = "Vence " + Model.humanDue(task.due, row.nowMs)
+    if (row.done) return "Completed"
+    var line = "Due " + Model.humanDue(task.due, row.nowMs)
     var lead = Number(task.leadHours) || 0
-    if (lead > 0) line += " · aviso " + Model.leadLabel(lead) + " antes"
-    if (row.overdue) line += " · ¡vencida!"
-    else if (row.reminderDue) line += " · ¡avisar ahora!"
+    if (lead > 0) line += " · reminder " + Model.leadLabel(lead) + " before"
+    if (row.overdue) line += " · overdue!"
+    else if (row.reminderDue) line += " · remind now!"
     return line
   }
 }

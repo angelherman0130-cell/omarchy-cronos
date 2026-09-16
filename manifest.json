@@ -27,8 +27,8 @@
       {
         "key": "defaultLeadHours",
         "type": "integer",
-        "label": "Aviso por defecto (horas)",
-        "description": "Con cuántas horas de antelación avisar por defecto al añadir una tarea.",
+        "label": "Default reminder (hours)",
+        "description": "How many hours in advance to remind by default when adding a task.",
         "min": 0,
         "max": 8760,
         "step": 1,

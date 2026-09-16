@@ -118,16 +118,16 @@ Item {
 
   function notify(task, nowMs) {
     var dueMs = Model.dueMs(task)
-    var line = "Vence " + (isNaN(dueMs) ? task.due : Model.humanDue(task.due, nowMs))
+    var line = "Due " + (isNaN(dueMs) ? task.due : Model.humanDue(task.due, nowMs))
     var lead = Number(task.leadHours) || 0
-    if (lead > 0) line += " · aviso " + Model.leadLabel(lead) + " antes"
+    if (lead > 0) line += " · reminder " + Model.leadLabel(lead) + " before"
 
     Quickshell.execDetached([
       root.omarchyPath + "/bin/omarchy-notification-send",
       "--app-name", "cronos",
-      "-g", "",
+      "-g", "",
       "-u", "normal",
-      "Tarea por vencer",
+      "Task due",
       task.title + "\n" + line
     ])
   }

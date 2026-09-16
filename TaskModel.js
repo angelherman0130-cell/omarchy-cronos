@@ -109,7 +109,7 @@ function firedMs(task) {
 
 // ---- reminder rules ------------------------------------------------
 
-// Day-based reminders ("1 día", "5 días", "1 sem", ...) ignore the clock and
+// Day-based reminders ("1 day", "5 days", "1 week", ...) ignore the clock and
 // fire on the reminder DAY — the due date shifted back by the whole lead days:
 //   - 5 minutes after each system start that day,
 //   - and at each 5-hour slot of the day (00:00, 05:00, 10:00, 15:00, 20:00)
@@ -172,7 +172,7 @@ function isReminderPending(task, nowMs, bootMs, graceMs) {
 }
 
 // Waiting-for-the-minute view: reminder moment arrived, not yet fired,
-// ignoring the boot grace. Drives the "avisar ahora" tag in the panel.
+// ignoring the boot grace. Drives the "remind now" tag in the panel.
 function reminderDueNow(task, nowMs) {
   if (task.done === true) return false
   if (isDayMode(task)) return dayReminderPending(task, nowMs, NaN, 0)
@@ -253,12 +253,12 @@ function closedTasks(tasks) {
 
 function leadLabel(hours) {
   var h = Math.max(0, Number(hours) || 0)
-  if (h <= 0.001) return "en el momento"
+  if (h <= 0.001) return "at the deadline"
   var totalMin = Math.round(h * 60)
   if (totalMin < 60) return totalMin + " min"
   if (totalMin % (24 * 60) === 0) {
     var d = totalMin / (24 * 60)
-    return d === 1 ? "1 día" : d + " días"
+    return d === 1 ? "1 day" : d + " days"
   }
   var hh = Math.floor(totalMin / 60)
   var mm = totalMin % 60
@@ -271,11 +271,11 @@ function humanDue(dueValue, nowMs) {
   if (isNaN(due)) return ""
   var n = daysBetween(localDateOf(nowMs), localDateOf(due))
   var base
-  if (n === 0) base = "hoy"
-  else if (n === 1) base = "mañana"
-  else if (n === -1) base = "ayer"
-  else if (n < 0) base = "hace " + (-n) + "d"
-  else base = "en " + n + "d"
+  if (n === 0) base = "today"
+  else if (n === 1) base = "tomorrow"
+  else if (n === -1) base = "yesterday"
+  else if (n < 0) base = (-n) + "d ago"
+  else base = "in " + n + "d"
   var t = timePart(dueValue)
   return t ? base + " " + t : base
 }

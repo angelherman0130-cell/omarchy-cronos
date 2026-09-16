@@ -20,10 +20,10 @@ BarWidget {
   readonly property bool urgent: service ? service.urgent === true : false
 
   readonly property string tooltip: !service
-    ? "Cronos — aún no cargado"
-    : (openCount === 0 ? "Cronos — sin tareas"
-      : "Cronos — " + openCount + (openCount === 1 ? " tarea pendiente" : " tareas pendientes")
-        + (urgent ? "\nAlguna vence pronto" : ""))
+    ? "Cronos — not loaded yet"
+    : (openCount === 0 ? "Cronos — no tasks"
+      : "Cronos — " + openCount + (openCount === 1 ? " pending task" : " pending tasks")
+        + (urgent ? "\nSome are due soon" : ""))
 
   // Vertical bars are icon-only.
   readonly property string label: root.vertical ? root.icon : root.icon + (openCount > 0 ? "  " + openCount : "")
