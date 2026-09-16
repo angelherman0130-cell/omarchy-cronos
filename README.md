@@ -20,6 +20,8 @@ and time) and choose when to be reminded:
   deadline" (min/h) or "Remind me in" (min/h).
 - If the machine was off when a reminder was due, it is notified five minutes
   after the next login.
+- A task due within the next hour (or already overdue) fires a **critical**
+  notification, distinct from the normal ones.
 
 It includes a completed-tasks section, loss-proof persistence (atomic writes
 + backup file) and automatic migration from the previous plugin version
@@ -32,7 +34,7 @@ It includes a completed-tasks section, loss-proof persistence (atomic writes
 - **Undo** a deleted task (it is kept in memory until you delete another one).
 - **Tags** (comma separated) show as `#tag` and can be used as a filter.
 - Sort the pending list: near first, overdue first, by name, or newest.
-- Days that carry open tasks are **underlined with an accent in the date
+- Days that carry open tasks are **underlined with an accent dot in the date
   picker**, so you can spot a busy month at a glance.
 
 ## Import / Export
@@ -74,7 +76,8 @@ omarchy plugin add https://github.com/angelherman0130-cell/omarchy-cronos.git --
 3. Press **＋ Add**.
 
 Overdue, unacknowledged tasks are highlighted with the urgent color in the
-bar. Completing a task moves it to "Completed"; the ✕ removes it.
+bar. Completing a task moves it to "Completed"; the ✕ removes it and **← Undo**
+restores the last removal; ✎ reopens the task in the form for editing.
 
 State is stored in `~/.local/state/omarchy/cronos/tasks.json`
 (plus `tasks.json.bak`).
